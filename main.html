@@ -1,0 +1,220 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+"http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+	<head>
+		<meta name="generator" content=
+		"HTML Tidy for Linux/x86 (vers 11 February 2007), see www.w3.org" />
+		<title>TxtNote</title>
+		<style type="text/css" media="print">
+			.noPrint {
+				display: none;
+				height: 0px;
+			}
+		</style>
+		<style type="text/css">
+			/*<![CDATA[*/
+			body {
+				margin: 0;
+				padding: 0;
+			}
+			.txtNote {
+				margin: 0;
+				padding: 0;
+				font-family: "Consolas", "Lucid Console", "Courier New";
+				border-style: none;
+				font-size: large;
+				padding-top: 5px;
+				padding-left: 5px;
+			}
+			.pullDownTable {
+				font-family: "arial";
+				border: 1px solid lightgrey;
+				width: 100%;
+				font-size: small;
+			}
+			.pullDownTable .heading {
+				font-weight: bold;
+			}
+			.pullDownTable .heading td {
+				width: 25%;
+			}
+			.puller {
+				margin: 0px;
+				margin-top: -1px;
+				padding-left: 10px;
+				padding-right: 10px;
+				border-top: 1px solid white;
+				border-left: 1px solid lightgrey;
+				border-right: 1px solid lightgrey;
+				border-bottom: 1px solid lightgrey;
+				position: absolute;
+				right: 18px;
+				background: white;
+			}
+			.pullDownWrapper {
+				position: absolute;
+				margin-bottom: 5px;
+				width: 100%;
+			}
+			.pullDownArea {
+				display: none;
+				width: 100%;
+				background: white;
+			}
+			.pullerUp {
+				display: none;
+			}
+			/*]]>*/
+		</style>
+		<script type="text/javascript" src="jquery-1.6.4.min.js"></script>
+		<script type="text/javascript" src="persist-min.js"></script>
+		<script type="text/javascript" src="pretty.js"></script>
+		<script type="text/javascript">
+			//<![CDATA[
+			txtNote = {};
+
+			txtNote.guidGenerator = function() {
+				var S4 = function() {
+					return (((1 + Math.random()) * 0x10000) | 0).toString(16).substring(1);
+				};
+				return (S4() + S4() + "-" + S4() + "-" + S4() + "-" + S4() + "-" + S4() + S4() + S4());
+			};
+
+			txtNote.loadNotes = function() {
+				txtNote.index = jQuery.parseJSON(txtNote.store.get("index"));
+				var heading = $(".pullDownTable .heading").clone();
+				$(".pullDownTable").text("");
+				$(".pullDownTable").append(heading);
+				txtNote.index = txtNote.index || [];
+				var i = 0;
+				while(i < txtNote.index.length) {
+					var item = jQuery.parseJSON(txtNote.store.get(txtNote.index[i]));
+
+					if(!item) {
+						alert("It seems like we lost a note!")
+						continue;
+					};
+					i++;
+					var created = new Date(item.created);
+					var modified = new Date(item.modified);
+					var title = item.text.substr(0, 48);
+					title = title.indexOf("\n") == -1 ? title : title.substr(0, title.indexOf("\n"));
+					var html = "<tr>" + "<td><a href='javascript:null' class='open' guid='" + item.id + "'>" + title + "</a></td>" + "<td>" + (prettyDate(created.toISOString()) || created.toLocaleString()) + "</td>" + "<td>" + (prettyDate(modified.toISOString()) || modified.toLocaleString()) + "</td>"
+					// +   "<td>Revisions 1</td>"
+					+ "<td><a href='javascript:null' class='delete' guid='" + item.id + "'>Delete</a></td>" + "</tr>";
+					$(".pullDownTable").append(html);
+
+				}
+				txtNote.bindClicks();
+				txtNote.resize();
+
+			};
+			txtNote.bindClicks = function() {
+				$(".open").click(function() {
+					txtNote.current = jQuery.parseJSON(txtNote.store.get($(this).attr("guid")));
+					$(".txtNote").val(txtNote.current.text);
+				});
+				$(".delete").click(function() {
+					if(confirm("Are you sure you want to delete the note?")) {
+						var guid = $(this).attr("guid");
+						txtNote.store.remove(guid);
+						txtNote.index.splice(txtNote.index.indexOf(guid), 1);
+						txtNote.store.set("index", JSON.stringify(txtNote.index));
+						txtNote.loadNotes();
+					};
+				});
+			}
+
+			txtNote.resize = function() {
+				$('.txtNote').width($(window).width() - 5);
+				var $pullDownArea = $(".pullDownArea");
+				var pullerHeight = $pullDownArea.is(":visible") ? $pullDownArea.height() : 0;
+				$('.txtNote').css("margin-top", pullerHeight);
+				$('.txtNote').height($(window).height() - 5 - 2 - pullerHeight);
+
+			};
+
+			txtNote.exportNotes = function() {
+				var i = 0;
+				$(".txtNote").val("");
+				while(i < txtNote.index.length) {
+					var item = jQuery.parseJSON(txtNote.store.get(txtNote.index[i]));
+
+					if(!item) {
+						alert("It seems like we lost a note!")
+						continue;
+					};
+					i++;
+					var created = new Date(item.created);
+					var modified = new Date(item.modified);
+					var title = item.text.substr(0, 48);
+					title = title.indexOf("\n") == -1 ? title : title.substr(0, title.indexOf("\n"));
+					title = title + " Created: " + (prettyDate(created.toISOString()) || created.toLocaleString()) + " Modified: " + (prettyDate(modified.toISOString()) || modified.toLocaleString());
+					var line = "";
+					for(var lineLength = 0; lineLength <= title.length; lineLength++) {
+						line += "=";
+					}
+					$(".txtNote").val($(".txtNote").val() + title + "\n" + line + "\n\n" + item.text + "\n");
+				}
+			}
+			txtNote.current = {
+				id : txtNote.guidGenerator(),
+				text : "",
+				created : new Date(),
+				modified : new Date(),
+			};
+			txtNote.index = [];
+			txtNote.store = null;
+
+			$(document).ready(function() {
+				txtNote.store = new Persist.Store('txtNote');
+
+				txtNote.resize();
+				txtNote.loadNotes();
+				$('.txtNote').focus();
+
+				$(".puller").click(function() {
+					$(".pullDownArea").toggle("fast", function() {
+						txtNote.resize()
+					});
+					$(".pullerDown").toggle();
+					$(".pullerUp").toggle();
+				});
+
+				$(window).resize(function() {
+					txtNote.resize();
+				});
+
+				$(".txtNote").keydown(function() {
+					txtNote.current.modified = new Date();
+					txtNote.current.text = $(".txtNote").val();
+					txtNote.store.set(txtNote.current.id, JSON.stringify(txtNote.current));
+					if(txtNote.index.indexOf(txtNote.current.id) == -1 && txtNote.current.text != "") {
+						txtNote.index.push(txtNote.current.id);
+						txtNote.store.set("index", JSON.stringify(txtNote.index));
+					}
+					txtNote.loadNotes();
+
+				});
+			});
+			//]]>
+		</script>
+	</head>
+	<body>
+		<div class="pullDownWrapper noPrint">
+			<div class="pullDownArea">
+				<table class="pullDownTable">
+					<tr class="heading">
+						<td>Name</td>
+						<td>Created</td>
+						<td>Modified</td>
+						<!-- <td>Revision</td> -->
+						<td>Action</td>
+					</tr>
+				</table>
+			</div><span class="puller noPrint"><img class="pullerDown" src="puller_down.png" /> <img class="pullerUp" src="puller_up.png" /></span>
+		</div>
+		<textarea class="txtNote">
+</textarea>
+	</body>
+</html>
